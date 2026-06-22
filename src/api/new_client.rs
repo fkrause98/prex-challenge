@@ -10,12 +10,12 @@ use super::validated::Validate;
 /// Entity representing a request for the endpoint 'new_client_request'.
 #[derive(Serialize, Deserialize)]
 pub struct NewClientRequest {
-    client_name: String,
-    birth_date: NaiveDate,
+    pub client_name: String,
+    pub birth_date: NaiveDate,
     // TODO: Make sure this is unique and maybe follow some format.
-    document_number: String,
+    pub document_number: String,
     // TODO: Make sure this is unique and maybe follow some format.
-    country: String,
+    pub country: String,
 }
 
 /// Entity representing a response for the endpoint 'new_client_request'.

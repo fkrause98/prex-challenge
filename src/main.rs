@@ -1,22 +1,34 @@
 pub mod api;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, Result, middleware};
+use std::{collections::HashMap, sync::Mutex};
+
+use actix_web::{App, HttpResponse, HttpServer, Responder, Result, get, middleware, post, web::{self, Data}};
 use api::{new_client::{NewClientRequest, NewClientResponse}, validated::Validated};
 use serde_json::json;
 
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
+
+#[derive(Default, Debug)]
+pub struct AccountStore {
+    pub balances: Mutex<HashMap<String, String>>,
+    pub ids: Mutex<HashMap<String, String>>
+}
+
+pub struct AppState {
+    pub accounts: AccountStore
 }
 
 #[post("/new_client")]
-async fn new_client(client_info: Validated<NewClientRequest>) -> Result<web::Json<NewClientResponse>> {
+async fn new_client(state: web::Data<AppState>, payload: Validated<NewClientRequest>) -> Result<web::Json<NewClientResponse>> {
+    let client_id: String = uuid::Uuid::new_v4().into();
+    {
+        // TODO: Abstract this into a function + struct
+        let mut balances = state.accounts.balances.lock().unwrap();
+        let mut ids = state.accounts.balances.lock().unwrap();
+        ids.insert(client_id.clone(), payload.0.document_number.clone());
+        balances.insert(payload.0.document_number.clone().to_owned(), "0".to_owned());
+    }
     Ok(
-        web::Json(NewClientResponse { client_id: "an_id".into() })
+        web::Json(NewClientResponse { client_id: client_id.into() })
     )
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
 }
 
 #[actix_web::main]
@@ -38,11 +50,13 @@ async fn main() -> std::io::Result<()> {
                 actix_web::error::InternalError::from_response(err, response).into()
             });
 
+        // TODO: Maybe rebuild known accounts from file
+        let state = Data::new(AppState { accounts: Default::default() });
+
         App::new()
+            .app_data(state)
             .app_data(json_cfg)
-            .service(hello)
             .service(new_client)
-            .route("/hey", web::get().to(manual_hello))
             .wrap(middleware::Logger::default())
 
     })
