@@ -1,12 +1,6 @@
 use actix_web::{App, HttpResponse, HttpServer, middleware, web::{self, Data}};
 use challenge_prex::state::AppState;
-use challenge_prex::api::{
-    new_client::new_client,
-    client_balance::client_balance,
-    new_credit_transaction::new_credit_transaction,
-    new_debit_transaction::new_debit_transaction,
-    store_balances::store_balances
-};
+use challenge_prex::api::routes::configure;
 use serde_json::json;
 
 #[actix_web::main]
@@ -35,11 +29,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(state)
             .app_data(json_cfg)
-            .service(new_client)
-            .service(client_balance)
-            .service(new_credit_transaction)
-            .service(new_debit_transaction)
-            .service(store_balances)
+            .configure(configure)
             .wrap(middleware::Logger::default())
 
     })

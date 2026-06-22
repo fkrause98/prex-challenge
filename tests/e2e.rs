@@ -1,12 +1,12 @@
 use actix_web::{test, web, App};
 use challenge_prex::state::AppState;
 use challenge_prex::store::AccountStore;
-use challenge_prex::api::{
-    client_balance::{client_balance, ClientBalanceResponse},
-    new_client::{new_client, NewClientRequest, NewClientResponse},
-    new_credit_transaction::{new_credit_transaction, NewCreditTransactionRequest, NewCreditTransactionResponse},
-    new_debit_transaction::{new_debit_transaction, NewDebitTransactionRequest, NewDebitTransactionResponse},
-    store_balances::{store_balances, StoreBalancesResponse},
+use challenge_prex::api::models::client::{
+    ClientBalanceResponse, NewClientRequest, NewClientResponse, StoreBalancesResponse,
+};
+use challenge_prex::api::models::transaction::{
+    NewCreditTransactionRequest, NewCreditTransactionResponse, NewDebitTransactionRequest,
+    NewDebitTransactionResponse,
 };
 use chrono::Utc;
 
@@ -20,11 +20,7 @@ async fn test_create_account_and_fetch_balance() {
     let app = test::init_service(
         App::new()
             .app_data(state.clone())
-            .service(new_client)
-            .service(client_balance)
-            .service(new_credit_transaction)
-            .service(new_debit_transaction)
-            .service(store_balances),
+            .configure(challenge_prex::api::routes::configure),
     )
     .await;
 
