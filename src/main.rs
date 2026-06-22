@@ -1,35 +1,6 @@
-pub mod api;
-use std::{collections::HashMap, sync::Mutex};
-
-use actix_web::{App, HttpResponse, HttpServer, Responder, Result, get, middleware, post, web::{self, Data}};
-use api::{new_client::{NewClientRequest, NewClientResponse}, validated::Validated};
+use actix_web::{App, HttpResponse, HttpServer, middleware, web::{self, Data}};
+use challenge_prex::{AppState, new_client, client_balance};
 use serde_json::json;
-
-
-#[derive(Default, Debug)]
-pub struct AccountStore {
-    pub balances: Mutex<HashMap<String, String>>,
-    pub ids: Mutex<HashMap<String, String>>
-}
-
-pub struct AppState {
-    pub accounts: AccountStore
-}
-
-#[post("/new_client")]
-async fn new_client(state: web::Data<AppState>, payload: Validated<NewClientRequest>) -> Result<web::Json<NewClientResponse>> {
-    let client_id: String = uuid::Uuid::new_v4().into();
-    {
-        // TODO: Abstract this into a function + struct
-        let mut balances = state.accounts.balances.lock().unwrap();
-        let mut ids = state.accounts.balances.lock().unwrap();
-        ids.insert(client_id.clone(), payload.0.document_number.clone());
-        balances.insert(payload.0.document_number.clone().to_owned(), "0".to_owned());
-    }
-    Ok(
-        web::Json(NewClientResponse { client_id: client_id.into() })
-    )
-}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -57,6 +28,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(state)
             .app_data(json_cfg)
             .service(new_client)
+            .service(client_balance)
             .wrap(middleware::Logger::default())
 
     })
