@@ -1,4 +1,3 @@
-use actix_web::{get, post, web, Result};
 use crate::api::error::ApiError;
 use crate::api::models::client::{
     ClientBalanceRequest, ClientBalanceResponse, NewClientRequest, NewClientResponse,
@@ -6,6 +5,7 @@ use crate::api::models::client::{
 };
 use crate::api::validated::Validated;
 use crate::state::AppState;
+use actix_web::{Result, get, post, web};
 
 #[post("/new_client")]
 pub async fn new_client(
@@ -13,7 +13,9 @@ pub async fn new_client(
     payload: Validated<NewClientRequest>,
 ) -> Result<web::Json<NewClientResponse>> {
     let client_id = state.accounts.create_client(payload.0.document_number)?;
-    Ok(web::Json(NewClientResponse { client_id: client_id.into() }))
+    Ok(web::Json(NewClientResponse {
+        client_id: client_id.into(),
+    }))
 }
 
 #[get("/client_balance")]
@@ -28,20 +30,14 @@ pub async fn client_balance(
     }
 
     let ids = state.accounts.ids.lock().unwrap();
-    let document_number = ids
-        .get(&req.client_id)
-        .cloned()
-        .ok_or_else(|| actix_web::error::ErrorNotFound(
-            ApiError::bad_request("Client not found")
-        ))?;
+    let document_number = ids.get(&req.client_id).cloned().ok_or_else(|| {
+        actix_web::error::ErrorNotFound(ApiError::bad_request("Client not found"))
+    })?;
 
     let balances = state.accounts.balances.lock().unwrap();
-    let balance = balances
-        .get(&document_number)
-        .cloned()
-        .ok_or_else(|| actix_web::error::ErrorNotFound(
-            ApiError::bad_request("Balance not found for client")
-        ))?;
+    let balance = balances.get(&document_number).cloned().ok_or_else(|| {
+        actix_web::error::ErrorNotFound(ApiError::bad_request("Balance not found for client"))
+    })?;
 
     Ok(web::Json(ClientBalanceResponse {
         client_id: req.client_id,
@@ -55,19 +51,20 @@ pub async fn store_balances(
 ) -> Result<web::Json<StoreBalancesResponse>> {
     let mut counter_guard = state.file_counter.lock().unwrap();
     let counter = *counter_guard;
-    
+
     let now = chrono::Local::now();
     let filename = format!("{}_{}.DAT", now.format("%d%m%Y"), counter);
 
     let mut content = String::new();
     {
         let ids = state.accounts.ids.lock().unwrap();
-        let balances = state.accounts.balances.lock().unwrap();
-        
+        let mut balances = state.accounts.balances.lock().unwrap();
+
         for (client_id, doc_num) in ids.iter() {
-            if let Some(balance) = balances.get(doc_num) {
+            balances.get_mut(doc_num).map(|balance| {
                 content.push_str(&format!("{} {}\n", client_id, balance));
-            }
+                *balance = rust_decimal::Decimal::ZERO;
+            });
         }
     }
 
