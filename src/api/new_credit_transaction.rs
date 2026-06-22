@@ -4,7 +4,10 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use super::error::ApiError;
-use super::validated::Validate;
+use super::validated::{Validate, Validated};
+
+use actix_web::{post, web};
+use crate::state::AppState;
 
 /// Entity representing a request for the endpoint 'new_credit_transaction'.
 #[derive(Serialize, Deserialize)]
@@ -34,6 +37,18 @@ impl Validate for NewCreditTransactionRequest {
 
         Ok(())
     }
+}
+
+#[post("/new_credit_transaction")]
+pub async fn new_credit_transaction(
+    state: web::Data<AppState>,
+    payload: Validated<NewCreditTransactionRequest>,
+) -> actix_web::Result<web::Json<NewCreditTransactionResponse>> {
+    let new_balance = state.accounts.credit(&payload.0.client_id, payload.0.credit_amount)?;
+    Ok(web::Json(NewCreditTransactionResponse {
+        client_id: payload.0.client_id,
+        new_balance,
+    }))
 }
 
 #[cfg(test)]

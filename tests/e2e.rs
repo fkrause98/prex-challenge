@@ -1,13 +1,12 @@
 use actix_web::{test, web, App};
-use challenge_prex::{
-    api::{
-        client_balance::ClientBalanceResponse,
-        new_client::{NewClientRequest, NewClientResponse},
-        new_credit_transaction::{NewCreditTransactionRequest, NewCreditTransactionResponse},
-        new_debit_transaction::{NewDebitTransactionRequest, NewDebitTransactionResponse},
-        store_balances::StoreBalancesResponse,
-    },
-    client_balance, new_client, new_credit_transaction, new_debit_transaction, store_balances, AccountStore, AppState,
+use challenge_prex::state::AppState;
+use challenge_prex::store::AccountStore;
+use challenge_prex::api::{
+    client_balance::{client_balance, ClientBalanceResponse},
+    new_client::{new_client, NewClientRequest, NewClientResponse},
+    new_credit_transaction::{new_credit_transaction, NewCreditTransactionRequest, NewCreditTransactionResponse},
+    new_debit_transaction::{new_debit_transaction, NewDebitTransactionRequest, NewDebitTransactionResponse},
+    store_balances::{store_balances, StoreBalancesResponse},
 };
 use chrono::Utc;
 

@@ -5,7 +5,10 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use super::error::ApiError;
-use super::validated::Validate;
+use super::validated::{Validate, Validated};
+
+use actix_web::{post, web};
+use crate::state::AppState;
 
 /// Entity representing a request for the endpoint 'new_client_request'.
 #[derive(Serialize, Deserialize)]
@@ -50,6 +53,16 @@ impl Validate for NewClientRequest {
         Ok(())
     }
 }
+
+#[post("/new_client")]
+pub async fn new_client(
+    state: web::Data<AppState>,
+    payload: Validated<NewClientRequest>,
+) -> actix_web::Result<web::Json<NewClientResponse>> {
+    let client_id = state.accounts.create_client(payload.0.document_number)?;
+    Ok(web::Json(NewClientResponse { client_id: client_id.into() }))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,5 +1,12 @@
 use actix_web::{App, HttpResponse, HttpServer, middleware, web::{self, Data}};
-use challenge_prex::{AppState, new_client, client_balance, new_credit_transaction, new_debit_transaction, store_balances};
+use challenge_prex::state::AppState;
+use challenge_prex::api::{
+    new_client::new_client,
+    client_balance::client_balance,
+    new_credit_transaction::new_credit_transaction,
+    new_debit_transaction::new_debit_transaction,
+    store_balances::store_balances
+};
 use serde_json::json;
 
 #[actix_web::main]
