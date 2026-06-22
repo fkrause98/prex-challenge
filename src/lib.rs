@@ -6,6 +6,8 @@ use actix_web::{Result, get, post, web};
 use api::{
     client_balance::{ClientBalanceRequest, ClientBalanceResponse},
     new_client::{NewClientRequest, NewClientResponse},
+    new_credit_transaction::{NewCreditTransactionRequest, NewCreditTransactionResponse},
+    new_debit_transaction::{NewDebitTransactionRequest, NewDebitTransactionResponse},
     validated::Validated,
 };
 use api::error::ApiError;
@@ -35,6 +37,44 @@ impl AccountStore {
                 Ok(client_id)
             }
         }
+    }
+
+    pub fn credit(&self, client_id: &str, amount: rust_decimal::Decimal) -> Result<rust_decimal::Decimal, actix_web::Error> {
+        let document_number = {
+            let ids = self.ids.lock().unwrap();
+            ids.get(client_id).ok_or_else(|| {
+                actix_web::error::ErrorNotFound(ApiError::bad_request("Client not found"))
+            })?.clone()
+        };
+        
+        let mut balances = self.balances.lock().unwrap();
+        let balance = balances.get_mut(&document_number).ok_or_else(|| {
+            actix_web::error::ErrorNotFound(ApiError::bad_request("Balance not found for client"))
+        })?;
+        
+        *balance += amount;
+        Ok(*balance)
+    }
+
+    pub fn debit(&self, client_id: &str, amount: rust_decimal::Decimal) -> Result<rust_decimal::Decimal, actix_web::Error> {
+        let document_number = {
+            let ids = self.ids.lock().unwrap();
+            ids.get(client_id).ok_or_else(|| {
+                actix_web::error::ErrorNotFound(ApiError::bad_request("Client not found"))
+            })?.clone()
+        };
+        
+        let mut balances = self.balances.lock().unwrap();
+        let balance = balances.get_mut(&document_number).ok_or_else(|| {
+            actix_web::error::ErrorNotFound(ApiError::bad_request("Balance not found for client"))
+        })?;
+        
+        if *balance < amount {
+            return Err(actix_web::error::ErrorBadRequest(ApiError::bad_request("Insufficient funds")));
+        }
+        
+        *balance -= amount;
+        Ok(*balance)
     }
 }
 
@@ -81,5 +121,29 @@ pub async fn client_balance(
     Ok(web::Json(ClientBalanceResponse {
         client_id: req.client_id,
         balance,
+    }))
+}
+
+#[post("/new_credit_transaction")]
+pub async fn new_credit_transaction(
+    state: web::Data<AppState>,
+    payload: Validated<NewCreditTransactionRequest>,
+) -> Result<web::Json<NewCreditTransactionResponse>> {
+    let new_balance = state.accounts.credit(&payload.0.client_id, payload.0.credit_amount)?;
+    Ok(web::Json(NewCreditTransactionResponse {
+        client_id: payload.0.client_id,
+        new_balance,
+    }))
+}
+
+#[post("/new_debit_transaction")]
+pub async fn new_debit_transaction(
+    state: web::Data<AppState>,
+    payload: Validated<NewDebitTransactionRequest>,
+) -> Result<web::Json<NewDebitTransactionResponse>> {
+    let new_balance = state.accounts.debit(&payload.0.client_id, payload.0.debit_amount)?;
+    Ok(web::Json(NewDebitTransactionResponse {
+        client_id: payload.0.client_id,
+        new_balance,
     }))
 }

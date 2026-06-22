@@ -1,5 +1,5 @@
 use actix_web::{App, HttpResponse, HttpServer, middleware, web::{self, Data}};
-use challenge_prex::{AppState, new_client, client_balance};
+use challenge_prex::{AppState, new_client, client_balance, new_credit_transaction, new_debit_transaction};
 use serde_json::json;
 
 #[actix_web::main]
@@ -29,6 +29,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(json_cfg)
             .service(new_client)
             .service(client_balance)
+            .service(new_credit_transaction)
+            .service(new_debit_transaction)
             .wrap(middleware::Logger::default())
 
     })
