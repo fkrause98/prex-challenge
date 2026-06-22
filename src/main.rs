@@ -1,5 +1,5 @@
 use actix_web::{App, HttpResponse, HttpServer, middleware, web::{self, Data}};
-use challenge_prex::{AppState, new_client, client_balance, new_credit_transaction, new_debit_transaction};
+use challenge_prex::{AppState, new_client, client_balance, new_credit_transaction, new_debit_transaction, store_balances};
 use serde_json::json;
 
 #[actix_web::main]
@@ -8,7 +8,6 @@ async fn main() -> std::io::Result<()> {
         env_logger::Env::default().default_filter_or("info")
     );
     HttpServer::new(|| {
-        // General error for bad json requests
         let json_cfg = web::JsonConfig::default()
             .error_handler(|err, _req| {
                 let response = HttpResponse::BadRequest().json(json!({
@@ -21,8 +20,10 @@ async fn main() -> std::io::Result<()> {
                 actix_web::error::InternalError::from_response(err, response).into()
             });
 
-        // TODO: Maybe rebuild known accounts from file
-        let state = Data::new(AppState { accounts: Default::default() });
+        let state = Data::new(AppState { 
+            accounts: Default::default(),
+            file_counter: std::sync::Mutex::new(1),
+        });
 
         App::new()
             .app_data(state)
@@ -31,6 +32,7 @@ async fn main() -> std::io::Result<()> {
             .service(client_balance)
             .service(new_credit_transaction)
             .service(new_debit_transaction)
+            .service(store_balances)
             .wrap(middleware::Logger::default())
 
     })
