@@ -4,8 +4,6 @@ use thiserror::Error;
 pub enum StoreError {
     #[error("Client already exists")]
     AlreadyExists,
-    #[error("Insufficient funds")]
-    InsufficientFunds,
     #[error("Mathematical overflow")]
     Overflow,
     #[error("Lock error: {0}")]

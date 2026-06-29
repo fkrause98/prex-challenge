@@ -598,7 +598,7 @@ async fn test_debit_nonexistent_client() {
 }
 
 #[actix_web::test]
-async fn test_debit_insufficient_funds() {
+async fn test_debit_allows_overdraft() {
     let state = create_test_state();
 
     let app = test::init_service(
@@ -609,9 +609,9 @@ async fn test_debit_insufficient_funds() {
     .await;
 
     let new_client_req = NewClientRequest {
-        client_name: "Debit Test User".to_string(),
+        client_name: "Overdraft Test User".to_string(),
         birth_date: Utc::now().date_naive() - chrono::Duration::days(365 * 20),
-        document_number: "DEBIT-FAIL".to_string(),
+        document_number: "OVERDRAFT-PASS".to_string(),
         country: "AR".to_string(),
     };
 
@@ -634,7 +634,7 @@ async fn test_debit_insufficient_funds() {
 
     let debit_req = NewDebitTransactionRequest {
         client_id,
-        debit_amount: rust_decimal::Decimal::new(10000, 2), // 100.00 > 50.00
+        debit_amount: rust_decimal::Decimal::new(10000, 2), // 100.00
     };
 
     let req = test::TestRequest::post()
@@ -642,8 +642,10 @@ async fn test_debit_insufficient_funds() {
         .set_json(&debit_req)
         .to_request();
 
-    let resp = test::call_service(&app, req).await;
-    assert_eq!(resp.status(), 400);
+    // Now it should succeed and return a negative balance
+    let resp: NewDebitTransactionResponse = test::call_and_read_body_json(&app, req).await;
+    assert_eq!(resp.client_id, client_id);
+    assert_eq!(resp.new_balance, rust_decimal::Decimal::new(-5000, 2)); // -50.00
 }
 
 // ---------------------------------------------------------------------------

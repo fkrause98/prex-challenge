@@ -58,7 +58,6 @@ impl From<crate::store::StoreError> for actix_web::Error {
         use crate::store::StoreError;
         match e {
             StoreError::AlreadyExists => actix_web::error::ErrorConflict(ApiError::conflict(e.to_string())),
-            StoreError::InsufficientFunds => actix_web::error::ErrorBadRequest(ApiError::bad_request(e.to_string())),
             StoreError::Overflow => actix_web::error::ErrorBadRequest(ApiError::bad_request(e.to_string())),
             StoreError::LockError(msg) => actix_web::error::ErrorInternalServerError(ApiError::internal(msg)),
             StoreError::Io(io_e) => actix_web::error::ErrorInternalServerError(ApiError::internal(io_e.to_string())),

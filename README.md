@@ -236,8 +236,6 @@ sequenceDiagram
 
     alt Cliente no existe
         S-->>C: 404 Not Found { error: "Client not found" }
-    else Saldo insuficiente
-        S-->>C: 400 Bad Request { error: "Insufficient funds" }
     else Débito exitoso
         S->>S: Mutex lock → clients.get_mut(client_id)
         S->>S: balance -= amount
@@ -430,13 +428,12 @@ Resta fondos del balance de un cliente.
 }
 ```
 
-**Validaciones:** `client_id > 0`, `debit_amount > 0`, saldo suficiente.
+**Validaciones:** `client_id > 0`, `debit_amount > 0`.
 
 **Respuestas:**
 | Status | Body |
 |--------|------|
 | `200` | `{ "client_id": 1, "new_balance": "100.50" }` |
-| `400` | `{ "error": { "message": "Insufficient funds" } }` (validación o saldo insuficiente) |
 | `404` | `{ "error": { "message": "Client not found" } }` |
 
 ---

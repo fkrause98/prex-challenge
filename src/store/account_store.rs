@@ -72,9 +72,6 @@ impl ClientsState {
         };
 
         let new_balance = client.balance.checked_add(amount).ok_or(StoreError::Overflow)?;
-        if new_balance < Decimal::ZERO {
-            return Err(StoreError::InsufficientFunds);
-        }
 
         client.balance = new_balance;
         Ok(Some(client.balance))
