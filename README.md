@@ -12,8 +12,7 @@ git clone https://github.com/fkrause98/prex-challenge.git && cd challenge-prex
 
 Levantar con docker:
 ```bash
-docker-compose up --build -d
-
+docker-compose up
 ```
 ---
 
