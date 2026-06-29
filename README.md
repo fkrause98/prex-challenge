@@ -5,11 +5,13 @@
 
 La forma más rápida de levantar el proyecto es utilizando Docker Compose.
 
+Primero, clonar el repo:
 ```bash
-# Clonar el repositorio
 git clone https://github.com/fkrause98/prex-challenge && cd challenge-prex
+```
 
-# Levantar el proyecto usando Docker Compose
+Levantar con docker:
+```bash
 docker-compose up --build -d
 
 ```
