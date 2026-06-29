@@ -1,108 +1,29 @@
 # Challenge Prex
 
-API RESTful construida en **Rust** con [actix-web](https://actix.rs/) para la gestión de clientes de una plataforma financiera. Permite crear clientes, consultar saldos, realizar transacciones de crédito/débito y exportar saldos diarios a disco.
-
----
-
-## Tabla de Contenidos
-
-- [Quick Start (Docker)](#quick-start-docker)
-- [Quick Start (Local)](#quick-start-local)
-- [Estructura del Proyecto](#estructura-del-proyecto)
-- [Arquitectura y Flujo](#arquitectura-y-flujo)
-- [Decisiones de Diseño](#decisiones-de-diseño)
-- [Endpoints (Referencia de API)](#endpoints-referencia-de-api)
-- [Pruebas](#pruebas)
-- [Stack Tecnológico](#stack-tecnológico)
-
----
 
 ## Quick Start (Docker)
 
-La forma más rápida de levantar el proyecto. Solo necesitas tener [Docker](https://docs.docker.com/get-docker/) instalado.
+La forma más rápida de levantar el proyecto es utilizando Docker Compose.
 
 ```bash
-# 1. Clonar el repositorio
-git clone <repo-url> && cd challenge-prex
+# Clonar el repositorio
+git clone https://github.com/fkrause98/prex-challenge/blob/main/README.md && cd challenge-prex
 
-# 2. Construir la imagen (multi-stage build, ~5 min la primera vez)
-docker build -t challenge-prex .
+# Levantar el proyecto usando Docker Compose
+docker-compose up --build -d
 
-# 3. Levantar el contenedor
-docker run -d -p 8080:8080 --name challenge-prex-api challenge-prex
-
-# 4. Verificar que la API responde
-curl -s http://localhost:8080/client_balance?user_id=1
 ```
-
-**Comandos útiles:**
-
-```bash
-# Ver logs en tiempo real
-docker logs -f challenge-prex-api
-
-# Detener el contenedor
-docker stop challenge-prex-api
-
-# Eliminar el contenedor
-docker rm challenge-prex-api
-```
-
-> **Nota sobre el Dockerfile:** Se utiliza un *multi-stage build* con caché de dependencias.
-> En la etapa `builder`, primero se copian solo `Cargo.toml` y `Cargo.lock` y se compilan las dependencias con un `main.rs` vacío. Esto permite que Docker cachee la capa de dependencias y solo recompile el código fuente en builds posteriores. La imagen final usa `debian:bookworm-slim` para mantener un tamaño mínimo.
-
 ---
 
 ## Quick Start (Local)
 
-Requisitos: [Rust toolchain](https://rustup.rs/) (edición 2024).
-
+Alternativamente, con Rust 1.96:
 ```bash
-# Compilar y ejecutar
 cargo run
-
-# La API estará disponible en http://127.0.0.1:8080
 ```
 
----
 
-## Estructura del Proyecto
-
-```
-challenge-prex/
-├── Cargo.toml                          # Dependencias y metadatos del proyecto
-├── Dockerfile                          # Build multi-stage optimizado
-├── challenge_prex_postman_collection.json  # Colección Postman para pruebas manuales
-│
-├── src/
-│   ├── main.rs                         # Punto de entrada: configura servidor, middleware y estado
-│   ├── lib.rs                          # Raíz del crate library (re-exporta módulos públicos)
-│   ├── state.rs                        # AppState: estado compartido de la aplicación
-│   ├── store/                          # Capa de almacenamiento y lógica de negocio
-│   │   ├── mod.rs                      # Re-exporta componentes principales
-│   │   ├── account_store.rs            # AccountStore y ClientsState (CRUD, exportación)
-│   │   └── store_error.rs              # StoreError: manejo de errores del dominio
-│   │
-│   └── api/
-│       ├── mod.rs                      # Re-exporta sub-módulos de la API
-│       ├── routes.rs                   # Configuración centralizada de rutas
-│       ├── error.rs                    # ApiError: manejo estructurado de errores (JSON)
-│       ├── validated.rs                # Extractor Validated<T>: validación automática de payloads
-│       │
-│       ├── handlers/                   # Controladores HTTP (un archivo por dominio)
-│       │   ├── client.rs              #   → new_client, client_balance, store_balances
-│       │   └── transaction.rs         #   → new_credit_transaction, new_debit_transaction
-│       │
-│       └── models/                     # DTOs de request/response (un archivo por dominio)
-│           ├── client.rs              #   → NewClientRequest/Response, ClientBalanceRequest/Response, etc.
-│           └── transaction.rs         #   → NewCreditTransactionRequest/Response, NewDebitTransactionRequest/Response
-│
-└── tests/
-    ├── e2e.rs                          # Tests End-to-End (integración completa)
-    └── README.md                       # Documentación detallada de los tests
-```
-
-### Capas de la Arquitectura
+## Secciones 
 
 | Capa | Archivos | Responsabilidad |
 |------|----------|-----------------|
@@ -122,77 +43,64 @@ challenge-prex/
 ### Diagrama de Componentes
 
 ```mermaid
-graph TB
-    subgraph "Cliente HTTP"
-        C[HTTP Client / Postman]
-    end
-
-    subgraph "actix-web Server"
-        MW["Middleware (Logger)"]
-        JC["JsonConfig (error handler)"]
-        R[routes.rs]
-
-        subgraph "Handlers"
-            HC[client.rs]
-            HT[transaction.rs]
-        end
-
-        subgraph "Extractors"
-            V["Validated&lt;T&gt;"]
-            Q["web::Query"]
+graph LR
+    Client([Cliente HTTP / Postman])
+    
+    subgraph "Servidor Actix-Web"
+        Router{Enrutador}
+        V[Validador]
+        
+        subgraph "Controladores (Handlers)"
+            ClientHandler[client.rs]
+            TxHandler[transaction.rs]
         end
     end
-
-    subgraph "Capa de Negocio"
-        AS[AppState]
-        ST["AccountStore (Mutex + BTreeMap)"]
+    
+    subgraph "Capa de Dominio"
+        AppSt[(Estado Global Mutex)]
+        Store[AccountStore]
+    end
+    
+    subgraph "Almacenamiento"
+        Disk[(Archivos .DAT)]
     end
 
-    subgraph "Persistencia"
-        FS["FileSystem (*.DAT)"]
-    end
-
-    C -->|HTTP Request| MW
-    MW --> R
-    R --> HC
-    R --> HT
-    HC --> V
-    HT --> V
-    HC --> Q
-    V -->|Payload validado| HC
-    V -->|Payload validado| HT
-    HC --> AS
-    HT --> AS
-    AS --> ST
-    ST -->|store_balances| FS
+    Client -- Peticiones JSON --> Router
+    Router -- Delega --> V
+    V -- Payload OK --> ClientHandler
+    V -- Payload OK --> TxHandler
+    ClientHandler -- Lee/Modifica --> AppSt
+    TxHandler -- Modifica --> AppSt
+    AppSt -- Protege --> Store
+    Store -- Exporta --> Disk
 ```
 
 ### Flujo de Creación de Cliente
 
 ```mermaid
 sequenceDiagram
-    participant C as Cliente HTTP
-    participant V as "Validated&lt;T&gt;"
-    participant H as Handler (client.rs)
-    participant S as AccountStore
-
-    C->>H: POST /new_client { client_name, birth_date, document_number, country }
-    H->>V: Deserializa y valida payload
+    actor Usuario
+    participant API as API (Actix)
+    participant Store as AccountStore
     
-    alt Validación falla
-        V-->>C: 400 Bad Request { error: "..." }
-    end
-
-    V->>H: NewClientRequest validado
-    H->>S: create_client(name, birth_date, doc, country)
+    Usuario->>API: POST /new_client
+    Note right of Usuario: { "client_name": "...", "document_number": "..." }
+    API->>API: Valida Payload
     
-    alt document_number ya existe
-        S-->>C: 409 Conflict { error: "Client already exists" }
-    else Nuevo cliente
-        S->>S: next_id += 1 → genera ID único
-        S->>S: Inserta en BTreeMap de clientes y HashMap de documentos
-        S-->>H: Ok(client_id)
-        H-->>C: 200 OK { client_id }
+    alt Payload Inválido
+        API-->>Usuario: 400 Bad Request
+    else Payload Válido
+        API->>Store: create_client()
+        Store->>Store: Lock Mutex
+        
+        alt Documento Duplicado
+            Store-->>API: Error(AlreadyExists)
+            API-->>Usuario: 409 Conflict
+        else Cliente Nuevo
+            Store->>Store: Generar ID y Guardar
+            Store-->>API: Ok(client_id)
+            API-->>Usuario: 200 OK { client_id }
+        end
     end
 ```
 
@@ -200,23 +108,22 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant C as Cliente HTTP
-    participant V as "Validated&lt;T&gt;"
-    participant H as Handler (transaction.rs)
-    participant S as AccountStore
-
-    C->>H: POST /new_credit_transaction { client_id, credit_amount }
-    H->>V: Deserializa y valida (id > 0, amount > 0)
-    V->>H: NewCreditTransactionRequest validado
-    H->>S: credit(client_id, amount)
-
-    alt Cliente no existe
-        S-->>C: 404 Not Found { error: "Client not found" }
-    else Cliente existe
-        S->>S: Mutex lock → clients.get_mut(client_id)
-        S->>S: balance += amount
-        S-->>H: Ok(new_balance)
-        H-->>C: 200 OK { client_id, new_balance }
+    actor Usuario
+    participant API as Handler (transaction)
+    participant Store as AccountStore
+    
+    Usuario->>API: POST /new_credit_transaction
+    API->>API: Valida monto > 0
+    API->>Store: credit(client_id, amount)
+    Store->>Store: Adquiere Lock
+    
+    alt Cliente Inexistente
+        Store-->>API: None
+        API-->>Usuario: 404 Not Found
+    else Cliente Encontrado
+        Store->>Store: balance += amount
+        Store-->>API: Ok(nuevo_balance)
+        API-->>Usuario: 200 OK { new_balance }
     end
 ```
 
@@ -224,125 +131,105 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant C as Cliente HTTP
-    participant V as "Validated&lt;T&gt;"
-    participant H as Handler (transaction.rs)
-    participant S as AccountStore
-
-    C->>H: POST /new_debit_transaction { client_id, debit_amount }
-    H->>V: Deserializa y valida (id > 0, amount > 0)
-    V->>H: NewDebitTransactionRequest validado
-    H->>S: debit(client_id, amount)
-
-    alt Cliente no existe
-        S-->>C: 404 Not Found { error: "Client not found" }
-    else Débito exitoso
-        S->>S: Mutex lock → clients.get_mut(client_id)
-        S->>S: balance -= amount
-        S-->>H: Ok(new_balance)
-        H-->>C: 200 OK { client_id, new_balance }
+    actor Usuario
+    participant API as Handler (transaction)
+    participant Store as AccountStore
+    
+    Usuario->>API: POST /new_debit_transaction
+    API->>API: Valida monto > 0
+    API->>Store: debit(client_id, amount)
+    Store->>Store: Adquiere Lock
+    
+    alt Cliente Inexistente
+        Store-->>API: None
+        API-->>Usuario: 404 Not Found
+    else Cliente Encontrado
+        Store->>Store: balance -= amount
+        Store-->>API: Ok(nuevo_balance)
+        API-->>Usuario: 200 OK { new_balance }
     end
 ```
 
-### Flujo de Cierre de Día (Store Balances)
+### Flujo de Store Balances
 
 ```mermaid
 sequenceDiagram
-    participant Admin as Admin / Cron
-    participant H as Handler (client.rs)
-    participant S as AccountStore
-    participant FS as FileSystem
-
-    Admin->>H: POST /store_balances
-    H->>S: export()
-
-    S->>S: Mutex lock
-    S->>S: Snapshot de saldos ordenado por client_id
-    S->>S: Resetea todos los balances a 0
-    S->>S: Genera nombre: DDMMYYYY_N.DAT
-    S->>FS: Escribe archivo con formato "client_id balance\n"
-    FS-->>S: Ok
-    S->>S: Libera Mutex lock
-    S-->>H: Ok(filename)
-    H-->>Admin: 200 OK { filename: "26062026_1.DAT" }
+    actor Sistema as Cron / Admin
+    participant API as Handler (client)
+    participant Store as AccountStore
+    participant FS as Sistema de Archivos
+    
+    Sistema->>API: POST /store_balances
+    API->>Store: export()
+    
+    Store->>Store: Bloquea Mutex de Estado Global
+    Store->>Store: Toma Snapshot de Saldos
+    
+    Store->>FS: Escribe archivo DDMMYYYY_N.tmp
+    FS-->>Store: Éxito
+    
+    Store->>FS: Renombra a DDMMYYYY_N.DAT
+    FS-->>Store: Éxito
+    
+    Store->>Store: Resetea todos los balances a 0
+    Store->>Store: Libera Mutex
+    
+    Store-->>API: Ok(filename)
+    API-->>Sistema: 200 OK { filename }
 ```
 
 ### Flujo de Consulta de Balance
 
 ```mermaid
 sequenceDiagram
-    participant C as Cliente HTTP
-    participant H as Handler (client.rs)
-    participant S as AccountStore
-
-    C->>H: GET /client_balance?user_id={id}
-    H->>S: get_client(id)
-
-    alt Cliente no existe
-        S-->>C: 404 Not Found { error: "Client not found" }
-    else Cliente encontrado
-        S->>S: Mutex lock → clients.get(id)
-        S-->>H: Ok(Client { id, name, birth_date, doc, country, balance })
-        H-->>C: 200 OK { client_id, client_name, birth_date, document_number, country, balance }
+    actor Usuario
+    participant API as Handler (client)
+    participant Store as AccountStore
+    
+    Usuario->>API: GET /client_balance?user_id=1
+    API->>Store: get_client(1)
+    
+    alt Cliente No Existe
+        Store-->>API: None
+        API-->>Usuario: 404 Not Found
+    else Cliente Encontrado
+        Store-->>API: Ok(Client)
+        API-->>Usuario: 200 OK { ...datos, balance }
     end
 ```
 
 ---
 
-## Decisiones de Diseño
+## Decisiones
 
-### 1. Almacenamiento en memoria
+### Almacenamiento en memoria
 
 Se eligió un store completamente en memoria por las restricciones del challenge.
 Todo el estado mutable de los clientes se protege con un único `Mutex<ClientsState>`:
 
-- **Por qué `Mutex<BTreeMap>`:** La carga esperada es baja y el modelo de concurrencia es simple. El uso de `BTreeMap` permite que los clientes se mantengan ordenados por ID automáticamente, simplificando la exportación.
-- **Consistencia en exportación:** El `Mutex` se mantiene durante todo el ciclo de `export()` — snapshot, reset de balances y escritura a disco — garantizando que ninguna transacción concurrente pueda observar un estado parcialmente reseteado ni escribir en el archivo al mismo tiempo.
-- **Índice secundario bajo el mismo lock:** El `document_index: HashMap<String, u64>` vive dentro del mismo `ClientsState` protegido por el `Mutex`, por lo que la verificación de unicidad de documento y la inserción del cliente son atómicas sin ningún mecanismo adicional.
+- Se guardan los datos bajo un`BTreeMap`, permite que los clientes se mantengan ordenados por ID automáticamente, simplificando la escritura a disco.
+- Un `Mutex` se mantiene durante todo el ciclo de `export()` garantizando que ninguna transacción concurrente pueda observar un estado parcialmente reseteado. El resto de operaciones deben tomar este mismo mutex para manipular el estado de los clientes. Se podría ser más granular en base
+a los requisitos de consistencia y rendimiento que existieran.
 
-### 2. Generación de IDs simple y segura
+### Generación de IDs
 
 Los IDs de cliente y el contador de archivos se manejan con simples contadores `u64` dentro del estado central (`ClientsState`).
 
-- **Sin variables atómicas:** Dado que todas las operaciones adquieren el `Mutex` para asegurar la consistencia general del sistema, los contadores pueden incrementarse bajo el mismo lock con total seguridad, evitando la sobrecarga mental y el uso innecesario de `AtomicU64`.
+### Extractor genérico `Validated<T>` para validación
 
-### 3. Extractor genérico `Validated<T>` para validación
+En lugar de validar manualmente en cada handler, implementé un
+extractor custom de Actix, basta con que la entidad
+que representa una request implemente un simple trait.
 
-En lugar de validar manualmente en cada handler, se implementó un extractor de actix-web personalizado:
 
-- **Composición declarativa:** El handler solo declara `Validated<NewClientRequest>` en su firma y recibe un payload ya validado.
-- **Trait `Validate`:** Cada modelo implementa sus propias reglas con `anyhow::ensure!`, manteniendo la lógica de validación co-ubicada con la definición del DTO.
-- **Reutilizable:** Cualquier nuevo endpoint solo necesita implementar `Validate` en su request model.
-
-### 4. `ApiError` con `thiserror` para errores consistentes
+### Errores
 
 Todos los errores de la API siguen un formato JSON uniforme `{ "error": { "message": "..." } }`:
 
-- **Sin duplicación de status:** El código HTTP ya viaja en la capa de transporte; repetirlo en el cuerpo es redundante. `ApiError` almacena un `StatusCode` de actix-web directamente.
-- **`ResponseError` trait:** Permite que actix-web convierta errores automáticamente en respuestas HTTP con el status code correcto.
-- **Separación de responsabilidades:** La capa del store lanza un tipo `StoreError` agnóstico a la API, y los handlers HTTP (`api/error.rs` vía `From`) lo convierten en el `ApiError` correspondiente (ej: `409 Conflict`, `404 Not Found`).
 
-### 5. Aritmética precisa con `rust_decimal`
+### Aritmética `rust_decimal`
 
-Los montos financieros se representan con `rust_decimal::Decimal` en lugar de `f64`:
-
-- **Sin errores de punto flotante:** `0.1 + 0.2 == 0.3` siempre es verdadero con `Decimal`.
-- **Serialización nativa:** Con el feature `serde`, se serializa/deserializa como string JSON, evitando pérdida de precisión en el transporte.
-
-### 6. Multi-stage Docker build con caché de dependencias
-
-El `Dockerfile` separa la compilación de dependencias del código fuente:
-
-- **Primera etapa:** Compila dependencias con un `main.rs` vacío → capa cacheada por Docker.
-- **Segunda etapa:** Solo recompila el código fuente del proyecto → builds incrementales rápidos (~10s vs ~5min).
-- **Imagen final:** Basada en `debian:bookworm-slim` → imagen de producción liviana sin toolchain de Rust.
-
-### 7. Separación `lib.rs` / `main.rs`
-
-El proyecto expone los módulos como crate library (`lib.rs`) además del binario (`main.rs`):
-
-- **Testabilidad:** Los tests E2E en `tests/e2e.rs` importan directamente las estructuras del crate (`use challenge_prex::...`) sin necesidad de levantar un servidor HTTP real.
-- **Reutilización:** Permite que otros crates o herramientas consuman la lógica de negocio.
+Los montos financieros se representan con `rust_decimal::Decimal` en lugar de `f64`, tal y como se pide en el challenge. Además este crate soporta serde.
 
 ---
 
@@ -464,27 +351,11 @@ EXPORT_DIR=/var/data/exports cargo run
 
 ---
 
-## Pruebas
+## Tests
 
-### Tests Unitarios
+### End-to-End
 
-Los modelos de request incluyen tests unitarios que validan exhaustivamente las reglas de validación:
-
-```bash
-cargo test
-```
-
-**Cobertura de validaciones testeadas:**
-
-| Modelo | Tests |
-|--------|-------|
-| `NewClientRequest` | Nombre vacío, fecha futura, fecha de hoy, documento vacío, código de país inválido |
-| `NewCreditTransactionRequest` | Client ID = 0, monto = 0 |
-| `NewDebitTransactionRequest` | Client ID = 0, monto = 0 |
-
-### Tests End-to-End
-
-Ubicados en `tests/e2e.rs`, validan flujos completos utilizando el `TestServer` de actix-web (sin necesidad de levantar un servidor HTTP real):
+Se encuentra en en `tests/e2e.rs`, validan flujos completos utilizando el `TestServer` de actix-web:
 
 | Test | Flujo validado |
 |------|----------------|
@@ -492,26 +363,11 @@ Ubicados en `tests/e2e.rs`, validan flujos completos utilizando el `TestServer` 
 | `test_store_balances_resets_balance` | Crear cliente → crédito → store_balances → verificar archivo DAT → verificar balance reseteado a 0 |
 | `test_duplicate_document_number_rejected` | Crear cliente → intentar crear otro con mismo documento → verificar 409 Conflict |
 
-Para más detalles sobre los tests, consultar [`tests/README.md`](tests/README.md).
 
 ### Colección Postman
 
 Se incluye `challenge_prex_postman_collection.json` para pruebas manuales interactivas:
 
-1. Importar el archivo en [Postman](https://www.postman.com/) o compatible (Insomnia, Bruno, etc.)
-2. Levantar la API (`cargo run` o Docker)
-3. Ejecutar las peticiones preconfiguradas
+1. Importar el archivo en [Postman](https://www.postman.com/).
+2. Levantar la API (`cargo run` o Docker).
 
----
-
-## Stack Tecnológico
-
-| Dependencia | Versión | Propósito |
-|-------------|---------|-----------|
-| [actix-web](https://crates.io/crates/actix-web) | 4 | Framework web async de alto rendimiento |
-| [serde](https://crates.io/crates/serde) / [serde_json](https://crates.io/crates/serde_json) | 1.0 | Serialización/deserialización JSON |
-| [rust_decimal](https://crates.io/crates/rust_decimal) | 1.42 | Aritmética decimal de precisión arbitraria |
-| [chrono](https://crates.io/crates/chrono) | 0.4 | Manejo de fechas y timestamps |
-| [thiserror](https://crates.io/crates/thiserror) | 2.0 | Derivación ergonómica de tipos de error |
-| [anyhow](https://crates.io/crates/anyhow) | 1.0 | Manejo flexible de errores con contexto |
-| [env_logger](https://crates.io/crates/env_logger) / [log](https://crates.io/crates/log) | 0.11 / 0.4 | Logging configurable vía `RUST_LOG` |

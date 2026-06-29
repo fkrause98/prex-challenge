@@ -1,30 +1,29 @@
 FROM rust:latest AS builder
-WORKDIR /usr/src/app
+WORKDIR /app
 
-COPY Cargo.toml Cargo.lock ./
+# Copy the entire project context
+COPY . .
 
-RUN mkdir src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "" > src/lib.rs && \
-    cargo build --release
+# Build the binary in release mode
+RUN cargo build --release
 
-RUN rm -f target/release/deps/challenge_prex* target/release/challenge-prex
-
-COPY src ./src
-
-RUN touch src/main.rs src/lib.rs && cargo build --release
-
+# Use a minimal base image for the runtime
 FROM debian:bookworm-slim
 WORKDIR /app
 
+# Install root certificates and clean up apt cache
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates libssl-dev && \
+    apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /usr/src/app/target/release/challenge-prex /app/challenge-prex
+# Copy the compiled binary from the builder stage
+COPY --from=builder /app/target/release/challenge-prex ./
 
+# Expose the server port
 EXPOSE 8080
 
+# Configure default logging
 ENV RUST_LOG=info
 
+# Run the server
 CMD ["./challenge-prex"]
