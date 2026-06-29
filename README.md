@@ -14,15 +14,19 @@ Levantar con docker:
 ```bash
 docker compose up
 ```
----
 
-## Quick Start (Local)
 
 Alternativamente, con Rust 1.96:
 ```bash
 cargo run
 ```
 
+### Colección Postman
+
+Se incluye `challenge_prex_postman_collection.json` como colección postman para
+utilizar de prueba manual.
+
+---
 
 ## Secciones 
 
@@ -365,10 +369,4 @@ Se encuentra en en `tests/e2e.rs`, validan flujos completos utilizando el `TestS
 | `test_duplicate_document_number_rejected` | Crear cliente → intentar crear otro con mismo documento → verificar 409 Conflict |
 
 
-### Colección Postman
-
-Se incluye `challenge_prex_postman_collection.json` para pruebas manuales interactivas:
-
-1. Importar el archivo en [Postman](https://www.postman.com/).
-2. Levantar la API (`cargo run` o Docker).
 
