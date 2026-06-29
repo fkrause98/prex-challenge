@@ -1,0 +1,247 @@
+{
+	"info": {
+		"name": "Challenge Prex API",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "New Client",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"client_name\": \"Juan Perez\",\n  \"birth_date\": \"1990-01-01\",\n  \"document_number\": \"12345678\",\n  \"country\": \"AR\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8080/new_client",
+					"protocol": "http",
+					"host": ["127", "0", "0", "1"],
+					"port": "8080",
+					"path": ["new_client"]
+				}
+			},
+			"response": [
+				{
+					"name": "201 Created",
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"client_id\": 1\n}"
+				},
+				{
+					"name": "400 Bad Request – Validation error",
+					"status": "Bad Request",
+					"code": 400,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"Birth date must be in the past\"\n  }\n}"
+				},
+				{
+					"name": "409 Conflict – Duplicate document number",
+					"status": "Conflict",
+					"code": 409,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"Client already exists\"\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "Client Balance",
+			"request": {
+				"method": "GET",
+				"url": {
+					"raw": "http://127.0.0.1:8080/client_balance?user_id=1",
+					"protocol": "http",
+					"host": ["127", "0", "0", "1"],
+					"port": "8080",
+					"path": ["client_balance"],
+					"query": [
+						{
+							"key": "user_id",
+							"value": "1"
+						}
+					]
+				}
+			},
+			"response": [
+				{
+					"name": "200 OK",
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"client_id\": 1,\n  \"client_name\": \"Juan Perez\",\n  \"birth_date\": \"1990-01-01\",\n  \"document_number\": \"12345678\",\n  \"country\": \"AR\",\n  \"balance\": \"150.50\"\n}"
+				},
+				{
+					"name": "404 Not Found – Client does not exist",
+					"status": "Not Found",
+					"code": 404,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"Client not found\"\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "New Credit Transaction",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"client_id\": 1,\n  \"credit_amount\": \"150.50\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8080/new_credit_transaction",
+					"protocol": "http",
+					"host": ["127", "0", "0", "1"],
+					"port": "8080",
+					"path": ["new_credit_transaction"]
+				}
+			},
+			"response": [
+				{
+					"name": "200 OK",
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"client_id\": 1,\n  \"new_balance\": \"150.50\"\n}"
+				},
+				{
+					"name": "400 Bad Request – Validation error",
+					"status": "Bad Request",
+					"code": 400,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"Credit amount must be greater than zero\"\n  }\n}"
+				},
+				{
+					"name": "404 Not Found – Client does not exist",
+					"status": "Not Found",
+					"code": 404,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"Client not found\"\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "New Debit Transaction",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"client_id\": 1,\n  \"debit_amount\": \"50.00\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://127.0.0.1:8080/new_debit_transaction",
+					"protocol": "http",
+					"host": ["127", "0", "0", "1"],
+					"port": "8080",
+					"path": ["new_debit_transaction"]
+				}
+			},
+			"response": [
+				{
+					"name": "200 OK",
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"client_id\": 1,\n  \"new_balance\": \"100.50\"\n}"
+				},
+				{
+					"name": "400 Bad Request – Insufficient funds",
+					"status": "Bad Request",
+					"code": 400,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"Insufficient funds\"\n  }\n}"
+				},
+				{
+					"name": "400 Bad Request – Validation error",
+					"status": "Bad Request",
+					"code": 400,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"Debit amount must be greater than zero\"\n  }\n}"
+				},
+				{
+					"name": "404 Not Found – Client does not exist",
+					"status": "Not Found",
+					"code": 404,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"Client not found\"\n  }\n}"
+				}
+			]
+		},
+		{
+			"name": "Store Balances",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "http://127.0.0.1:8080/store_balances",
+					"protocol": "http",
+					"host": ["127", "0", "0", "1"],
+					"port": "8080",
+					"path": ["store_balances"]
+				}
+			},
+			"response": [
+				{
+					"name": "200 OK",
+					"status": "OK",
+					"code": 200,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"filename\": \"29062026_1.DAT\"\n}"
+				},
+				{
+					"name": "500 Internal Server Error – Disk write failure",
+					"status": "Internal Server Error",
+					"code": 500,
+					"_postman_previewlanguage": "json",
+					"header": [{"key": "Content-Type", "value": "application/json"}],
+					"body": "{\n  \"error\": {\n    \"message\": \"No space left on device\"\n  }\n}"
+				}
+			]
+		}
+	]
+}

@@ -1,11 +1,13 @@
-use anyhow::{ensure, Result};
+use anyhow::{Result, ensure};
 use chrono::{NaiveDate, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::api::error::ApiError;
 use crate::api::validated::Validate;
+use crate::store::Client;
 
-/// Entity representing a request for the endpoint 'new_client_request'.
+/// Entity representing a request for the endpoint 'new_client'.
 #[derive(Serialize, Deserialize)]
 pub struct NewClientRequest {
     pub client_name: String,
@@ -14,10 +16,10 @@ pub struct NewClientRequest {
     pub country: String,
 }
 
-/// Entity representing a response for the endpoint 'new_client_request'.
+/// Entity representing a response for the endpoint 'new_client'.
 #[derive(Serialize, Deserialize)]
 pub struct NewClientResponse {
-    pub client_id: String,
+    pub client_id: u64,
 }
 
 impl Validate for NewClientRequest {
@@ -50,24 +52,30 @@ impl Validate for NewClientRequest {
 /// Entity representing a request for the endpoint 'client_balance'.
 #[derive(Serialize, Deserialize)]
 pub struct ClientBalanceRequest {
-    pub client_id: String,
+    pub user_id: u64,
 }
 
 /// Entity representing a response for the endpoint 'client_balance'.
 #[derive(Serialize, Deserialize)]
 pub struct ClientBalanceResponse {
-    pub client_id: String,
-    pub balance: rust_decimal::Decimal,
+    pub client_id: u64,
+    pub client_name: String,
+    pub birth_date: NaiveDate,
+    pub document_number: String,
+    pub country: String,
+    pub balance: Decimal,
 }
 
-impl Validate for ClientBalanceRequest {
-    fn validate(&self) -> Result<()> {
-        ensure!(
-            !self.client_id.trim().is_empty(),
-            ApiError::bad_request("Client ID cannot be empty")
-        );
-
-        Ok(())
+impl From<Client> for ClientBalanceResponse {
+    fn from(client: Client) -> Self {
+        Self {
+            client_id: client.id,
+            client_name: client.client_name,
+            birth_date: client.birth_date,
+            document_number: client.document_number,
+            country: client.country,
+            balance: client.balance,
+        }
     }
 }
 
@@ -104,7 +112,12 @@ mod tests {
 
         let result = req.validate();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Client name cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Client name cannot be empty")
+        );
     }
 
     #[test]
@@ -114,7 +127,12 @@ mod tests {
 
         let result = req.validate();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Birth date must be in the past"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Birth date must be in the past")
+        );
     }
 
     #[test]
@@ -124,7 +142,12 @@ mod tests {
 
         let result = req.validate();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Birth date must be in the past"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Birth date must be in the past")
+        );
     }
 
     #[test]
@@ -134,7 +157,12 @@ mod tests {
 
         let result = req.validate();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Document number cannot be empty"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Document number cannot be empty")
+        );
     }
 
     #[test]
@@ -144,42 +172,15 @@ mod tests {
         req.country = "USA".to_string();
         let result = req.validate();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Country must be a valid 2-letter"));
+        assert!(
+            result
+                .unwrap_err()
+                .to_string()
+                .contains("Country must be a valid 2-letter")
+        );
 
         req.country = "U".to_string();
         let result2 = req.validate();
         assert!(result2.is_err());
-    }
-
-    fn get_valid_balance_request() -> ClientBalanceRequest {
-        ClientBalanceRequest {
-            client_id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
-        }
-    }
-
-    #[test]
-    fn test_balance_successful_validation() {
-        let req = get_valid_balance_request();
-        assert!(req.validate().is_ok());
-    }
-
-    #[test]
-    fn test_empty_client_id_fails() {
-        let mut req = get_valid_balance_request();
-        req.client_id = "".to_string();
-
-        let result = req.validate();
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Client ID cannot be empty"));
-    }
-
-    #[test]
-    fn test_whitespace_only_client_id_fails() {
-        let mut req = get_valid_balance_request();
-        req.client_id = "   ".to_string();
-
-        let result = req.validate();
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Client ID cannot be empty"));
     }
 }
